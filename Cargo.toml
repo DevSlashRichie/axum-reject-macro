@@ -1,0 +1,17 @@
+[package]
+name = "axum-reject-macro"
+authors = ["Celeste Peláez <celeste@eufonia.studio>"]
+description = "A macro that allows creating axum rejections easily"
+edition = "2021"
+publish = false
+license-file = "LICENSE"
+version = "0.1.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+darling = "0.20.3"
+proc-macro2 = "1.0.76"
+quote = "1.0.35"
+syn = "2.0.48"
