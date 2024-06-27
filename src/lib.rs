@@ -51,7 +51,6 @@ impl ToTokens for HttpError {
         tokens.extend(quote! {
             impl #impl_generics axum::response::IntoResponse for #ident #ty_generics #where_clause {
                 fn into_response(self) -> axum::response::Response {
-                    tracing::error!("{:?}: {}", self, self);
                     match self {
                         #(#match_arms),*
                     }
