@@ -1,7 +1,9 @@
+use std::fmt::format;
+
 use darling::ast::{self, Fields};
 use darling::{util, FromDeriveInput, FromVariant};
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::{Ident, Type};
 
 #[derive(Debug, FromVariant)]
@@ -21,6 +23,15 @@ struct HttpError {
     data: ast::Data<HttpErrorVariant, util::Ignored>,
 }
 
+fn replace_first_occurrence(original: &str, target: &str, replacement: &str) -> String {
+    if let Some(index) = original.find(target) {
+        let (before, after) = original.split_at(index);
+        let after_target = &after[target.len()..];
+        return format!("{}{}{}", before, replacement, after_target);
+    }
+    original.to_string()
+}
+
 impl ToTokens for HttpError {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let ident = &self.ident;
@@ -35,20 +46,56 @@ impl ToTokens for HttpError {
                 let ident = &variant.ident;
                 let status = variant.status;
                 let message = &variant.message;
-                let field = variant.fields.iter().map(|_| quote! { _ }).collect::<Vec<_>>();
+
+                let ph_count = message.matches("{}").count();
+
+                let field = variant.fields.iter().enumerate().fold(Vec::new(), |mut acc, (next_i, _next_t)| {
+                    if ph_count == 0 {
+                        acc.push(quote! {
+                            _
+                        });
+                    }
+
+                    if ph_count != next_i {
+                        let field_name = format_ident!("f_{}", next_i);
+
+                        acc.push(quote! {
+                            #field_name
+                        });
+                    }
+
+                    acc
+                });
 
                 if field.is_empty() {
                     quote! {
                         Self::#ident => (axum::http::StatusCode::from_u16(#status).unwrap(), format!(r#"{{"error": "{}"}}"#, #message).to_string()).into_response()
                     }
-                } else {
+                }  else if ph_count == 0 {
                     quote! {
                         Self::#ident(#(#field),*) => (axum::http::StatusCode::from_u16(#status).unwrap(), format!(r#"{{"error": "{}"}}"#, #message).to_string()).into_response()
                     }
+                } else {
+                    quote! {
+                        Self::#ident(#(#field),*) => {
+                                let new_message = {
+                                let mut msg = #message.to_string();
+                                #(
+                                    msg = msg.replacen("{}", &#field.to_string(), 1);
+                                )*
+                                msg
+                            };
+
+                            (axum::http::StatusCode::from_u16(#status).unwrap(), format!(r#"{{"error": "{}"}}"#, new_message).to_string()).into_response()
+                        }
+
+                    }
+
                 }
             });
 
         tokens.extend(quote! {
+            #[automatically_derived]
             impl #impl_generics axum::response::IntoResponse for #ident #ty_generics #where_clause {
                 fn into_response(self) -> axum::response::Response {
                     match self {
