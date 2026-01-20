@@ -69,11 +69,11 @@ impl ToTokens for HttpError {
 
                 if field.is_empty() {
                     quote! {
-                        Self::#ident => (axum::http::StatusCode::from_u16(#status).unwrap(), format!(r#"{{"error": "{}"}}"#, #message).to_string()).into_response()
+                        Self::#ident => (axum::http::StatusCode::from_u16(#status).unwrap(), format!(r#"{{"message": "{}"}}"#, #message).to_string()).into_response()
                     }
                 }  else if ph_count == 0 {
                     quote! {
-                        Self::#ident(#(#field),*) => (axum::http::StatusCode::from_u16(#status).unwrap(), format!(r#"{{"error": "{}"}}"#, #message).to_string()).into_response()
+                        Self::#ident(#(#field),*) => (axum::http::StatusCode::from_u16(#status).unwrap(), format!(r#"{{"message": "{}"}}"#, #message).to_string()).into_response()
                     }
                 } else {
                     quote! {
@@ -86,7 +86,7 @@ impl ToTokens for HttpError {
                                 msg
                             };
 
-                            (axum::http::StatusCode::from_u16(#status).unwrap(), format!(r#"{{"error": "{}"}}"#, new_message).to_string()).into_response()
+                            (axum::http::StatusCode::from_u16(#status).unwrap(), format!(r#"{{"message": "{}"}}"#, new_message).to_string()).into_response()
                         }
 
                     }
